@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools >= 77.0.3", "setuptools-scm >= 8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+description = "Inventory the long-lived Python objects in a process."
+dynamic = ["version"]
+license = "EUPL-1.2"
+name = "memory_inventory"
+requires-python = ">= 3.12"
+
+[project.urls]
+Repository = "https://github.com/liberapay/memory_inventory.py"
+
+[tool.setuptools_scm]
+version_scheme = "no-guess-dev"
