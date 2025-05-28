@@ -7,6 +7,7 @@ description = "Inventory the long-lived Python objects in a process."
 dynamic = ["version"]
 license = "EUPL-1.2"
 name = "memory_inventory"
+readme = "README.md"
 requires-python = ">= 3.12"
 
 [project.urls]
