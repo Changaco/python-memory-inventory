@@ -16,7 +16,6 @@ from operator import itemgetter
 import os
 from pathlib import Path
 from pprint import pformat
-from resource import getrusage, RUSAGE_SELF
 import sys
 from tempfile import gettempdir
 import threading
@@ -91,7 +90,13 @@ def qual_name(cls: type) -> str:
 def render_process_stats() -> str:
     """Get some basic statistics on the current process. Unix only.
     """
-    ru = getrusage(RUSAGE_SELF)
+    if sys.platform == 'win32':  # for mypy
+        return ""
+    try:
+        import resource
+    except ImportError:
+        return ""
+    ru = resource.getrusage(resource.RUSAGE_SELF)
     total_time = ru.ru_utime + ru.ru_stime
     u2s_ratio = ru.ru_utime / total_time
     res_mem = ru.ru_idrss or '<unknown>'
@@ -1173,22 +1178,22 @@ class TypeStatsDict(dict[type, TypeStats]):
                 maximum_number_of_rows=15,
             ) or ' none.'}"
         )
-        with open(save_dir / 'types_by_memory_usage.html', 'w') as f:
-            print(html_template.replace('$body$', '\n'.join((
+        with open(save_dir / 'types_by_memory_usage.html', 'wb') as f:
+            f.write(html_template.replace('$body$', '\n'.join((
                 "<h2>Types by intrinsic memory usage</h2>",
                 ''.join(render_html_table(*types_by_intrinsic_memory_usage, '')),
-            ))), file=f)
-        with open(save_dir / 'uninstantiated_types.html', 'w') as f:
-            print(html_template.replace('$body$', '\n'.join((
+            ))).encode('utf-8'))
+        with open(save_dir / 'uninstantiated_types.html', 'wb') as f:
+            f.write(html_template.replace('$body$', '\n'.join((
                 "<h2>Uninstantiated types <small>(excluding BaseException and its subclasses)</small></h2>",
                 '\n'.join(
                     f'<details><summary>{cls_qual_name}</summary>'
                     f'<div class="details">{html.escape(repr(cls))} at 0x{id(cls):x}</div></details>'
                     for cls, cls_qual_name in uninstantiated_types
                 ),
-            ))), file=f)
-        with open(save_dir / 'classes_lacking_slots.html', 'w') as f:
-            print(html_template.replace('$body$', '\n'.join((
+            ))).encode('utf-8'))
+        with open(save_dir / 'classes_lacking_slots.html', 'wb') as f:
+            f.write(html_template.replace('$body$', '\n'.join((
                 "<h2>Instantiated classes lacking slots</h2>",
                 ''.join(render_html_table(*classes_lacking_slots[0], '')) or '<p>None found.</p>',
                 "<h2>Uninstantiated classes lacking slots</h2>",
@@ -1196,13 +1201,13 @@ class TypeStatsDict(dict[type, TypeStats]):
                     '<p>None found.</p>' if sys.version_info >= (3, 13, 0) else
                     '<p>None found (requires Python ≥ 3.13).</p>'
                 ),
-            ))), file=f)
+            ))).encode('utf-8'))
         for cls, table_data in duplicate_objects_by_type.items():
-            with open(save_dir / f'duplicate_{qual_name(cls)}.html', 'w') as f:
-                print(html_template.replace('$body$', '\n'.join((
+            with open(save_dir / f'duplicate_{qual_name(cls)}.html', 'wb') as f:
+                f.write(html_template.replace('$body$', '\n'.join((
                     "<h2>Duplicate instances</h2>",
                     ''.join(render_html_table(*table_data, '')) or '<p>None found.</p>',
-                ))), file=f)
+                ))).encode('utf-8'))
 
 
 def types_by_duplicate_objects(
@@ -1380,7 +1385,7 @@ def main(
     def collect_stats() -> TypeStatsDict:
         debug: Callable[..., None]
         if write_debug_log:
-            debug_log = open(save_path / 'debug.log', 'w')
+            debug_log = open(save_path / 'debug.log', 'w', encoding='utf-8')
             debug = partial(print, file=debug_log)
         else:
             debug_log = open(os.devnull, 'w')
