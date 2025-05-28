@@ -1,0 +1,31 @@
+name: test
+on:
+  # Trigger the workflow on push or pull request events but only for the main branch
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  # Allow running this workflow manually from the Actions tab
+  workflow_dispatch:
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install tox
+        run: pip install tox
+      - name: Run the tests
+        run: tox
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
