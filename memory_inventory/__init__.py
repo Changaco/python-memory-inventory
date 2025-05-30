@@ -172,12 +172,17 @@ descriptor_types_to_ignore: set[type] = {
 "never return objects we're interested in (as of Python 3.13)."
 
 
+iterables_to_skip : set[type] = {array, bytearray, bytes, str}
+"A set of types whose instances aren't worth calling `iter` on in our case."
+
+
 def deep_get_referents(
     *objects: object,
     limit: int = 0,
     seen: set[int] | None = None,
     attributes_to_skip: set[int] = set(),
-    descriptor_types_to_ignore: set[type] = descriptor_types_to_ignore
+    descriptor_types_to_ignore: set[type] = descriptor_types_to_ignore,
+    iterables_to_skip: set[type] = iterables_to_skip,
 ) -> Iterator[object]:
     """Yields the preexisting objects directly or indirectly referenced by `obj`.
 
@@ -190,6 +195,10 @@ def deep_get_referents(
     """
     debug = debug_logger.get()
     getrefcount = sys.getrefcount
+
+    if (np := sys.modules.get('numpy')):
+        iterables_to_skip.add(np.ndarray)
+    del np
 
     if seen is None:
         seen = set()
@@ -318,7 +327,7 @@ def deep_get_referents(
                 extend_queue(obj.values)
         elif isinstance(obj, Collection):
             if is_native_callable(obj.__iter__):
-                if not isinstance(obj, (array, bytearray, bytes, str)):
+                if obj.__class__ not in iterables_to_skip:
                     extend_queue(lambda: iter(obj))
         i += 1
     if queue:
