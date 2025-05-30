@@ -147,6 +147,8 @@ def is_native_callable(obj: object) -> bool:
     """
     if not callable(obj):
         return False
+    if isinstance(obj, partial):
+        obj = obj.func
     # Get the name of the module this object's definition is from. It's either
     # `obj.__module__` (for a type or function) or `obj.__class__.__module__`
     # (for everything else).
