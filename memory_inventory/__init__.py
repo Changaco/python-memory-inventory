@@ -1216,7 +1216,7 @@ class TypeStatsDict(dict[type, TypeStats]):
         for cls, table_data in duplicate_objects_by_type.items():
             with open(save_dir / f'duplicate_{qual_name(cls)}.html', 'wb') as f:
                 f.write(html_template.replace('$body$', '\n'.join((
-                    "<h2>Duplicate instances</h2>",
+                    f"<h2>Duplicate {qual_name(cls)} instances</h2>",
                     ''.join(render_html_table(*table_data, '')) or '<p>None found.</p>',
                 ))).encode('utf-8'))
 
