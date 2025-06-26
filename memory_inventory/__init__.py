@@ -1,6 +1,6 @@
 from array import array
 import builtins
-from collections import Counter, defaultdict, deque
+from collections import ChainMap, Counter, defaultdict, deque
 from collections.abc import (
     Collection, Hashable, Iterable, Iterator, Mapping, Sequence,
 )
@@ -150,9 +150,9 @@ def is_native_callable(obj: object) -> bool:
     if isinstance(obj, partial):
         obj = obj.func
     # Get the name of the module this object's definition is from. It's either
-    # `obj.__module__` (for a type or function) or `obj.__class__.__module__`
+    # `obj.__module__` (for a type or function) or `type(obj).__module__`
     # (for everything else).
-    module_name = getattr(obj, '__module__', None) or obj.__class__.__module__
+    module_name = getattr(obj, '__module__', None) or type(obj).__module__
     # Check whether this module name is already in our cache.
     if (r := native_modules.get(module_name)) is not None:
         return r
@@ -174,6 +174,9 @@ descriptor_types_to_ignore: set[type] = {
 
 iterables_to_skip : set[type] = {array, bytearray, bytes, str}
 "A set of types whose instances aren't worth calling `iter` on in our case."
+mappings_to_skip : set[type] = {ChainMap}
+"A set of types whose instances aren't worth calling `.keys()` and `.values()` "
+"on in our case."
 
 
 def deep_get_referents(
@@ -254,7 +257,7 @@ def deep_get_referents(
                 # dict itself isn't.
                 extend_queue(obj_dict.keys)
                 extend_queue(obj_dict.values)
-            elif obj_dict is obj.__class__.__dict__.get('__dict__'):
+            elif obj_dict is type(obj).__dict__.get('__dict__'):
                 # This `__dict__` is a class variable, not an instance dict.
                 add_to_queue(obj_dict)
             elif obj_dict:
@@ -264,7 +267,7 @@ def deep_get_referents(
         if isinstance(obj, type):
             mro = obj.__mro__
         else:
-            mro = obj.__class__.__mro__
+            mro = type(obj).__mro__
         for cls in mro:
             add_to_queue(cls)
             try:
@@ -289,7 +292,7 @@ def deep_get_referents(
                     continue
                 if id(v) in attributes_to_skip:
                     continue
-                descriptor_type = v.__class__
+                descriptor_type = type(v)
                 if descriptor_type in descriptor_types_to_ignore:
                     continue
                 if descriptor_type is staticmethod and cls in examined_classes:
@@ -321,14 +324,39 @@ def deep_get_referents(
             examined_classes.add(cls)
         del cls, mro
         if isinstance(obj, Mapping):
-            if is_native_callable(obj.keys):
-                extend_queue(obj.keys)
-            if is_native_callable(obj.values):
-                extend_queue(obj.values)
+            if type(obj) not in mappings_to_skip:
+                try:
+                    keys_method = obj.keys
+                except Exception as e:
+                    debug(
+                        f"trying to get the `keys` method of {object.__repr__(obj)} "
+                        f"resulted in {e!r}"
+                    )
+                else:
+                    if is_native_callable(keys_method):
+                        extend_queue(keys_method)
+                try:
+                    values_method = obj.values
+                except Exception as e:
+                    debug(
+                        f"trying to get the `values` method of {object.__repr__(obj)} "
+                        f"resulted in {e!r}"
+                    )
+                else:
+                    if is_native_callable(values_method):
+                        extend_queue(values_method)
         elif isinstance(obj, Collection):
-            if is_native_callable(obj.__iter__):
-                if obj.__class__ not in iterables_to_skip:
-                    extend_queue(lambda: iter(obj))
+            if type(obj) not in iterables_to_skip:
+                try:
+                    iter_method = obj.__iter__
+                except Exception as e:
+                    debug(
+                        f"trying to get the `__iter__` method of {object.__repr__(obj)} "
+                        f"resulted in {e!r}"
+                    )
+                else:
+                    if is_native_callable(iter_method):
+                        extend_queue(lambda: iter(obj))
         i += 1
     if queue:
         queue_by_type = sorted(
@@ -610,7 +638,7 @@ def get_instance_dict(o: object) -> dict[str, object] | None:
     `None` if the object doesn't have a `__dict__` slot at all.
     """
     o_dict = getattr(o, '__dict__', None)
-    if o_dict is not o.__class__.__dict__.get('__dict__'):
+    if o_dict is not type(o).__dict__.get('__dict__'):
         return o_dict
     else:
         return None
@@ -748,7 +776,7 @@ def custom_hash(obj: object) -> Hashable:
             slot_attributes = []
             elements: list[Hashable] = []
             items: list[tuple[tuple[Hashable, Hashable], ...]] = []
-            for cls in obj.__class__.__mro__:
+            for cls in type(obj).__mro__:
                 for k, v in cls.__dict__.items():
                     if k in {'__class__', '__dict__', '__text_signature__', '__weakref__'}:
                         continue
@@ -797,7 +825,7 @@ def custom_hash(obj: object) -> Hashable:
                             del _elements
             slot_attributes.sort(key=itemgetter(0))
             r = (
-                obj.__class__,
+                type(obj),
                 tuple(slot_attributes),
                 dict_attributes,
                 tuple(elements),
