@@ -279,10 +279,10 @@ def deep_get_referents(
                 continue
             for k, v in cls_dict_items:
                 getter = getattr(v, '__get__', None)
-                if getter is None:
-                    continue
                 if isinstance(getter, property):
                     getter = getter.fget
+                if getter is None:
+                    continue
                 if not is_native_callable(getter):
                     # Don't try to access non-native properties. They're too
                     # slow, unsafe, and unlikely to return preexisting objects
@@ -299,7 +299,7 @@ def deep_get_referents(
                     continue
                 debug(f'calling {v}.__get__({object.__repr__(obj)}) ', end='')
                 try:
-                    attr = getter(obj, cls)
+                    attr = getter(obj, cls)  # type: ignore[call-arg]
                 except DeprecationWarning:
                     debug('→ emitted a DeprecationWarning')
                     attributes_to_skip.add(id(v))
