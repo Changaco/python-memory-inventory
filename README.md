@@ -1,8 +1,9 @@
 `memory_inventory` is a Python module that collects and outputs statistics on
 global objects. It can help you determine why a Python program consumes an
 excessive amount of memory when it's idle. This is different than memory
-profilers like [memray](https://bloomberg.github.io/memray/) that track memory
-allocations as they happen.
+profilers like [tracemalloc](https://docs.python.org/3/library/tracemalloc.html)
+and [memray](https://bloomberg.github.io/memray/) that track memory allocations
+as they happen.
 
 `memory_inventory` is written entirely in typed Python and is compatible with
 versions 3.12 and above of CPython.
